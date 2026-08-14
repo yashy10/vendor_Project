@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
@@ -15,7 +14,6 @@ import {
 const PRESETS_IN_CENTS = [500, 1000, 2000];
 
 export default function AmountInput({ vendorId }: { vendorId: string }) {
-  const router = useRouter();
   const [raw, setRaw] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,15 +28,34 @@ export default function AmountInput({ vendorId }: { vendorId: string }) {
     setError(null);
   }
 
-  function handlePay() {
+  async function handlePay() {
     if (!isValidAmount(cents) || pending) return;
     setPending(true);
     setError(null);
 
-    // Pass 2 replaces this line with POST /api/checkout, then redirects to the
-    // Stripe Checkout URL it returns. Stripe's success_url points back at these
-    // same query params, so the success page does not change.
-    router.push(`/success?vendor=${vendorId}&amount=${cents}`);
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId, amount: raw }),
+      });
+
+      const data: { url?: string; error?: string } = await response.json();
+
+      if (!response.ok || !data.url) {
+        setError(data.error ?? "We couldn't start checkout. Please try again.");
+        setPending(false);
+        return;
+      }
+
+      // Stripe Checkout is on Stripe's own domain, so this has to be a
+      // full-page navigation, not a client-side route push. Leave `pending`
+      // set — the button stays busy until the browser leaves the page.
+      window.location.href = data.url;
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setPending(false);
+    }
   }
 
   return (

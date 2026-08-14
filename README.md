@@ -10,18 +10,21 @@ Santa Cruz Fair → Taco Bros → Enter $10 → Pay Now → Stripe Checkout → 
 
 ## Status
 
-**Pass 1 (UI) — done.** All four screens exist and the flow is clickable end to end.
-`Pay Now` currently jumps straight to the success page instead of opening Stripe.
-
-**Pass 2 (Stripe) — not started.** Adds `POST /api/checkout`, which validates the amount,
-creates a Checkout Session with `metadata.vendor`, and returns the Stripe URL.
+**Working end to end in Stripe test mode.** No webhooks, no Connect, no persistence —
+Stripe's Dashboard is the only record that a payment happened.
 
 ## Running it
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+cp .env.example .env.local     # then paste your Stripe TEST secret key into it
+npm run dev                    # http://localhost:3000
 ```
+
+Get a test key at [dashboard.stripe.com/test/apikeys](https://dashboard.stripe.com/test/apikeys).
+It must start with `sk_test_`. `.env.local` is gitignored.
+
+Pay with card `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP.
 
 ## Layout
 
@@ -32,14 +35,24 @@ npm run dev      # http://localhost:3000
 | `src/app/page.tsx` | Vendor list |
 | `src/app/vendor/[id]/page.tsx` | Vendor payment page |
 | `src/app/success/page.tsx` | Success screen, reads `?vendor=&amount=` |
-| `src/components/AmountInput.tsx` | Amount field + Pay Now. **The only file pass 2 has to change.** |
+| `src/components/AmountInput.tsx` | Amount field + Pay Now → `POST /api/checkout` → redirect to Stripe |
+| `src/app/api/checkout/route.ts` | Creates the Checkout Session. The only place `STRIPE_SECRET_KEY` is read. |
 
 Amounts are held as whole cents everywhere except the input field itself, and are capped
 at $0.50–$500.
 
-### Where Stripe plugs in
+### The payment flow
 
-`AmountInput.handlePay` does a `router.push('/success?vendor=…&amount=…')`. Pass 2 swaps
-that for a `POST /api/checkout` and redirects to the returned Stripe URL. Stripe's
-`success_url` uses those same two query params, so the success page needs no changes.
-`cancel_url` points back at `/vendor/[id]`.
+`Pay Now` POSTs `{ vendorId, amount }` to `/api/checkout`. The server re-validates the
+amount, resolves the vendor from `vendors.ts` (the browser's `vendorId` is only a lookup
+key — any name it sends is ignored), and creates a `mode: payment` Session with dynamic
+`price_data`, so no Product or Price needs to exist in the Dashboard. `vendorId` and
+`vendorName` are attached as metadata to both the Session and the PaymentIntent.
+
+The browser then does a full-page navigation to `session.url`. Stripe returns the customer
+to `/success?vendor=&amount=`; cancelling returns them to `/vendor/[id]`. Both URLs are
+derived from the request origin, so no base-URL env var is needed.
+
+> The success page reads those query params for display only — it does not verify the
+> payment. Don't build fulfillment on it; that's what the `checkout.session.completed`
+> webhook is for.
