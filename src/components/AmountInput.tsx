@@ -1,61 +1,27 @@
 "use client";
 
-import { useState } from "react";
-
-import {
-  AMOUNT_PATTERN,
-  formatCents,
-  isValidAmount,
-  MAX_CENTS,
-  MIN_CENTS,
-  toCents,
-} from "@/lib/amount";
+import { AMOUNT_PATTERN } from "@/lib/amount";
 
 const PRESETS_IN_CENTS = [500, 1000, 2000];
 
-export default function AmountInput({ vendorId }: { vendorId: string }) {
-  const [raw, setRaw] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const cents = toCents(raw);
-
+/**
+ * The dollar field and its presets. Controlled: PaymentPanel owns the value,
+ * because every payment method needs to read the same amount.
+ */
+export default function AmountInput({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled?: boolean;
+}) {
   // Reject anything that isn't a dollar amount at the keystroke, so the field
-  // can never hold a value the button would have to reason about.
+  // can never hold a value the buttons would have to reason about.
   function handleChange(next: string) {
     if (next !== "" && !AMOUNT_PATTERN.test(next)) return;
-    setRaw(next);
-    setError(null);
-  }
-
-  async function handlePay() {
-    if (!isValidAmount(cents) || pending) return;
-    setPending(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendorId, amount: raw }),
-      });
-
-      const data: { url?: string; error?: string } = await response.json();
-
-      if (!response.ok || !data.url) {
-        setError(data.error ?? "We couldn't start checkout. Please try again.");
-        setPending(false);
-        return;
-      }
-
-      // Stripe Checkout is on Stripe's own domain, so this has to be a
-      // full-page navigation, not a client-side route push. Leave `pending`
-      // set — the button stays busy until the browser leaves the page.
-      window.location.href = data.url;
-    } catch {
-      setError("Something went wrong. Please try again.");
-      setPending(false);
-    }
+    onChange(next);
   }
 
   return (
@@ -76,8 +42,9 @@ export default function AmountInput({ vendorId }: { vendorId: string }) {
         </span>
         <input
           id="amount"
-          value={raw}
+          value={value}
           onChange={(event) => handleChange(event.target.value)}
+          disabled={disabled}
           inputMode="decimal"
           autoComplete="off"
           placeholder="0.00"
@@ -91,36 +58,14 @@ export default function AmountInput({ vendorId }: { vendorId: string }) {
           <button
             key={preset}
             type="button"
-            onClick={() => {
-              setRaw((preset / 100).toFixed(2));
-              setError(null);
-            }}
-            className="border-sand text-ink hover:border-clay/50 h-12 rounded-2xl border-2 bg-white font-bold transition active:scale-[0.98]"
+            onClick={() => onChange((preset / 100).toFixed(2))}
+            disabled={disabled}
+            className="border-sand text-ink hover:border-clay/50 h-12 rounded-2xl border-2 bg-white font-bold transition active:scale-[0.98] disabled:opacity-50"
           >
             ${preset / 100}
           </button>
         ))}
       </div>
-
-      <button
-        type="button"
-        onClick={handlePay}
-        disabled={!isValidAmount(cents) || pending}
-        className="bg-clay enabled:hover:bg-clay-dark disabled:bg-sand disabled:text-ink-soft mt-6 h-14 w-full rounded-2xl text-lg font-bold text-white shadow-sm transition enabled:active:scale-[0.99] disabled:cursor-not-allowed"
-      >
-        {pending
-          ? "Just a sec…"
-          : isValidAmount(cents)
-            ? `Pay ${formatCents(cents)}`
-            : "Pay Now"}
-      </button>
-
-      <p
-        className="text-ink-soft mt-3 text-center text-sm"
-        role={error ? "alert" : undefined}
-      >
-        {error ?? `Any amount from ${formatCents(MIN_CENTS)} to ${formatCents(MAX_CENTS)}.`}
-      </p>
     </div>
   );
 }

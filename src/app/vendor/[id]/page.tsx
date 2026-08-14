@@ -1,20 +1,42 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import AmountInput from "@/components/AmountInput";
-import { getVendor, vendors } from "@/lib/vendors";
+import PaymentPanel from "@/components/PaymentPanel";
+import { getVendor, type Vendor, vendors } from "@/lib/vendors";
 
 export function generateStaticParams() {
   return vendors.map((vendor) => ({ id: vendor.id }));
 }
 
+/**
+ * Where the customer sends their Zelle transfer.
+ *
+ * Read here, in a server component, rather than in the vendor registry: this is
+ * someone's real phone number or email, so it stays out of source and out of git
+ * history. A vendor may carry its own identifier; otherwise everyone shares the
+ * ZELLE_PHONE env var. Unset env and no override means no Zelle button.
+ */
+function resolveZelleIdentifier(vendor: Vendor): string | undefined {
+  if (!vendor.zelleEnabled) return undefined;
+  return vendor.zelleIdentifier ?? process.env.ZELLE_PHONE;
+}
+
 export default async function VendorPage({
   params,
+  searchParams,
 }: PageProps<"/vendor/[id]">) {
   const { id } = await params;
   const vendor = getVendor(id);
 
   if (!vendor) notFound();
+
+  // Set when a Venmo capture came back unfinished, so the customer is not
+  // dropped back here with no explanation.
+  const { error } = await searchParams;
+  const initialError =
+    error === "venmo"
+      ? "Venmo checkout didn't complete. Please try again or use another method."
+      : undefined;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -40,7 +62,11 @@ export default async function VendorPage({
         </div>
       </header>
 
-      <AmountInput vendorId={vendor.id} />
+      <PaymentPanel
+        vendor={vendor}
+        zelleIdentifier={resolveZelleIdentifier(vendor)}
+        initialError={initialError}
+      />
 
       {/* Placeholder for the stretch-goal QR code. Desktop only — scanning a
           code on the phone you are already holding makes no sense. */}
