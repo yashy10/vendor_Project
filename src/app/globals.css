@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  /* Warm fair palette: cream boardwalk, terracotta, sunset amber. */
+  --color-cream: #fdf5e9;
+  --color-sand: #f0e0c8;
+  --color-clay: #c1522b;
+  --color-clay-dark: #a2411f;
+  --color-sun: #eda13a;
+  --color-ink: #3b2a20;
+  --color-ink-soft: #8a7263;
+  --color-leaf: #2f7d5d;
+
+  --font-display: var(--font-fredoka);
+  --font-sans: var(--font-nunito);
+}
+
+body {
+  /* A soft sunrise wash behind the cream so the page isn't a flat block. */
+  background-color: var(--color-cream);
+  background-image: radial-gradient(
+    120% 60% at 50% -10%,
+    color-mix(in oklab, var(--color-sun) 22%, transparent) 0%,
+    transparent 60%
+  );
+  background-repeat: no-repeat;
+}
