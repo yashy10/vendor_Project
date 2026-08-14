@@ -6,10 +6,10 @@ export type Vendor = {
   /** Hides the Zelle button when false — Zelle is per-vendor, unlike card and Venmo. */
   zelleEnabled?: boolean;
   /**
-   * Per-vendor Zelle destination. Deliberately unset here: real identifiers are
-   * personal contact details and do not belong in a public repo. When a vendor
-   * has none, the page falls back to the ZELLE_PHONE env var — see
-   * `resolveZelleIdentifier` in src/app/vendor/[id]/page.tsx and .env.example.
+   * Per-vendor Zelle destination — the phone or email the customer sends the
+   * transfer to. Published on purpose: this is a payment address customers are
+   * meant to read off the screen, so it lives in source rather than in an env
+   * var. Unset means no Zelle button for that vendor.
    */
   zelleIdentifier?: string;
   /**
@@ -20,6 +20,13 @@ export type Vendor = {
   zelleQrSrc?: string;
 };
 
+/**
+ * Every vendor collects Zelle at the same number for this demo, so the memo is
+ * the only thing distinguishing which stand a given transfer was meant for.
+ * Give a vendor its own `zelleIdentifier` to split them apart.
+ */
+const ZELLE_PHONE = "408-444-5454";
+
 export const vendors: Vendor[] = [
   {
     id: "taco-bros",
@@ -27,6 +34,7 @@ export const vendors: Vendor[] = [
     description: "Mexican Food",
     emoji: "🌮",
     zelleEnabled: true,
+    zelleIdentifier: ZELLE_PHONE,
   },
   {
     id: "coast-coffee",
@@ -34,6 +42,7 @@ export const vendors: Vendor[] = [
     description: "Coffee & Drinks",
     emoji: "☕",
     zelleEnabled: true,
+    zelleIdentifier: ZELLE_PHONE,
   },
   {
     id: "sunny-scoops",
@@ -41,6 +50,7 @@ export const vendors: Vendor[] = [
     description: "Ice Cream",
     emoji: "🍦",
     zelleEnabled: true,
+    zelleIdentifier: ZELLE_PHONE,
   },
 ];
 

@@ -171,8 +171,9 @@ Two invariants worth defending:
   drift toward the `/success` wording.
 - **No generated QR codes or deep links.** There is no supported way to build a Zelle payment link,
   so `zelleQrSrc` renders only a vendor's *own* official image and is unset for everyone today.
-- **No real Zelle identifier in the repo.** It comes from `ZELLE_PHONE`; see the data-flow note
-  below. Don't reintroduce one as a literal, even as a placeholder that looks real.
+- **The Zelle number is published on purpose.** It is a payment address customers read off the
+  screen, so it is a literal in `vendors.ts` and is expected to be public. This was a deliberate
+  reversal of an earlier env-var approach — don't "fix" it back into the environment.
 
 The memo alphabet omits `I`, `O`, `0`, `1` because a human retypes it into a banking app, and
 `/pending` re-validates it against `REFERENCE_PATTERN` before display. Codes are not persisted —
@@ -184,13 +185,14 @@ uniqueness is probabilistic (32^5), which is fine for a fair stall and not for a
 *and* register a `/vendor/[id]` route, because `generateStaticParams` enumerates the same array.
 `getVendor(id)` returns `undefined` for unknown ids; the vendor page calls `notFound()`.
 
-Card and Venmo are global (one merchant account each), so only Zelle is configured per vendor, via
-`zelleEnabled`. **The identifier itself is never in source** — `resolveZelleIdentifier` in the vendor
-page reads `ZELLE_PHONE` from the environment, because a real one is someone's personal phone or
-email and this repo is public. A vendor may still override with its own `zelleIdentifier`. The
-resolved value is passed to `PaymentPanel` as a prop; when it's undefined the Zelle button does not
-render at all. Resolve it in the server component, never in `vendors.ts` — that module is imported
-by a client component, where a non-`NEXT_PUBLIC_` env var silently becomes `undefined`.
+Card and Venmo are global (one merchant account each), so only Zelle is configured per vendor:
+`zelleEnabled` plus a `zelleIdentifier` literal. `resolveZelleIdentifier` in the vendor page needs
+both and passes the result to `PaymentPanel` as a prop; when it's undefined the Zelle button does
+not render at all. Zelle has no credentials and reads no environment variable — the destination is
+meant to be seen.
+
+All three vendors currently share one number, so **the memo is the only thing distinguishing which
+stand a transfer was for.** Give a vendor its own `zelleIdentifier` to split them apart.
 
 `/success` is deliberately **tolerant of missing or garbage query params** — it degrades through
 "You sent $X to Vendor" → "Your payment to Vendor went through" → "Thank you for your payment"

@@ -9,16 +9,11 @@ export function generateStaticParams() {
 }
 
 /**
- * Where the customer sends their Zelle transfer.
- *
- * Read here, in a server component, rather than in the vendor registry: this is
- * someone's real phone number or email, so it stays out of source and out of git
- * history. A vendor may carry its own identifier; otherwise everyone shares the
- * ZELLE_PHONE env var. Unset env and no override means no Zelle button.
+ * Where the customer sends their Zelle transfer. Needs both the flag and an
+ * actual destination — either missing means no Zelle button.
  */
 function resolveZelleIdentifier(vendor: Vendor): string | undefined {
-  if (!vendor.zelleEnabled) return undefined;
-  return vendor.zelleIdentifier ?? process.env.ZELLE_PHONE;
+  return vendor.zelleEnabled ? vendor.zelleIdentifier : undefined;
 }
 
 export default async function VendorPage({
